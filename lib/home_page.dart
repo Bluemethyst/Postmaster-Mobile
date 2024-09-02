@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:postmaster_mobile/database.dart';
 import 'package:postmaster_mobile/json_data.dart';
 import 'package:postmaster_mobile/network.dart';
+
+import 'icon_select.dart';
 
 class PostmasterHomePage extends StatefulWidget {
   const PostmasterHomePage({super.key});
@@ -32,6 +35,8 @@ String formatDate(String dateStr) {
 
 class PostmasterHomePageState extends State<PostmasterHomePage> {
   String trackingNumber = '';
+  bool _saveToDatabase = true;
+  final dbHelper = DatabaseHelper.instance;
   Future<TrackingResponseData>? _trackingResult;
 
   @override
@@ -70,23 +75,7 @@ class PostmasterHomePageState extends State<PostmasterHomePage> {
                               for (var event in result.trackingEvents!.reversed)
                                 Card(
                                   child: ListTile(
-                                    leading: Icon(event.status == 'Delivered'
-                                        ? Icons.check_circle_outline
-                                        : event.status == 'In Transit'
-                                            ? Icons.local_shipping_outlined
-                                            : event.status!.contains(
-                                                    "International departure")
-                                                ? Icons.flight_takeoff
-                                                : event.status!.contains(
-                                                        "International arrival")
-                                                    ? Icons.flight_land
-                                                    : event.status!.contains(
-                                                                "Depot") ||
-                                                            event.status!
-                                                                .contains(
-                                                                    "depot")
-                                                        ? Icons.home_outlined
-                                                        : Icons.error_outline),
+                                    leading: Icon(getIcon(event.status!)),
                                     title: Text(event.description!),
                                     //trailing: Text(formatDate(event.dateTime!)),
                                     subtitle: Text(event.status!),
@@ -107,6 +96,7 @@ class PostmasterHomePageState extends State<PostmasterHomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          trackingNumber = '';
           showDialog(
             context: context,
             builder: (BuildContext context) {
@@ -123,18 +113,34 @@ class PostmasterHomePageState extends State<PostmasterHomePage> {
                   ),
                 ),
                 actions: <Widget>[
-                  ElevatedButton(
-                    onPressed: () {
-                      if (trackingNumber.isNotEmpty) {
-                        Navigator.of(context).pop();
+                  Row(children: [
+                    const Text("Save Parcel?"),
+                    Checkbox(
+                      value: _saveToDatabase,
+                      onChanged: (bool? newValue) {
                         setState(() {
-                          _trackingResult = getData(trackingNumber)
-                              as Future<TrackingResponseData>?;
+                          _saveToDatabase = newValue ?? false;
                         });
-                      }
-                    },
-                    child: const Text('Track'),
-                  ),
+                      },
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (trackingNumber.isNotEmpty) {
+                          if (_saveToDatabase) {
+                            dbHelper.addEntry(trackingNumber);
+                          } else {
+                            print("Not saving to database");
+                          }
+                          Navigator.of(context).pop();
+                          setState(() {
+                            _trackingResult = getData(trackingNumber)
+                                as Future<TrackingResponseData>?;
+                          });
+                        }
+                      },
+                      child: const Text('Track'),
+                    ),
+                  ])
                 ],
               );
             },
